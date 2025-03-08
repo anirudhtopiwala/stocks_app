@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Portfolio Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.10.24/css/dataTables.bootstrap5.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .summary-card {
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .positive-return { color: #28a745; }
+        .negative-return { color: #dc3545; }
+        .news-card {
+            margin-bottom: 15px;
+            transition: transform 0.2s;
+        }
+        .news-card:hover {
+            transform: translateY(-5px);
+        }
+        .news-card {
+            transition: transform 0.2s;
+            border: none;
+            border-bottom: 1px solid rgba(0,0,0,.125);
+        }
+        .news-card:last-child {
+            border-bottom: none;
+        }
+        .news-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0,0,0,.1);
+        }
+        .accordion-button:not(.collapsed) {
+            background-color: #f8f9fa;
+            color: #0d6efd;
+        }
+        .accordion-button:focus {
+            box-shadow: none;
+            border-color: rgba(0,0,0,.125);
+        }
+        #toggle-all-news {
+            transition: all 0.3s ease;
+        }
+        
+        #toggle-all-news:hover {
+            transform: translateY(-1px);
+        }
+        
+        .accordion-button {
+            transition: all 0.3s ease;
+        }
+        .badge {
+            font-size: 0.7em;
+            padding: 0.35em 0.65em;
+        }
+        
+        .accordion-button .badge {
+            margin-left: 8px;
+        }
+        .color-box {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }
+        
+        .industry-group {
+            padding: 12px;
+            border-radius: 6px;
+            background-color: #f8f9fa;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .industry-group:hover {
+            background-color: #e9ecef;
+        }
+
+        .ticker-detail {
+            display: flex;
+            align-items: center;
+            margin: 4px 0;
+            font-size: 0.9em;
+        }
+
+        .ticker-symbol {
+            font-weight: 500;
+            min-width: 60px;
+        }
+
+        .ticker-weight {
+            color: #666;
+            margin: 0 10px;
+            min-width: 70px;
+        }
+
+        .ticker-industry {
+            color: #888;
+            font-style: italic;
+        }
+
+        .card {
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        canvas {
+            max-height: 400px;
+        }
+
+        .analysis-container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .analysis-content {
+            line-height: 1.6;
+        }
+
+        .headlines-container {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">Stock Portfolio Dashboard</a>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-12">
+                <div class="summary-card">
+                    <h3>Portfolio Summary</h3>
+                    <div class="row" id="summary-stats">
+                        <!-- Summary stats will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h3>Holdings</h3>
+                        <table id="portfolio-table" class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Position</th>
+                                    <th>Ticker</th>
+                                    <th>Type</th>
+                                    <th>Quantity</th>
+                                    <th>Avg Cost</th>
+                                    <th>Current Price</th>
+                                    <th>Total Cost</th>
+                                    <th>Current Value</th>
+                                    <th>P/L</th>
+                                    <th>Return %</th>
+                                    <th>Weight %</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Portfolio data will be inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">News Summary</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="input-group mb-3">
+                            <input type="text" id="summaryTickerInput" class="form-control" placeholder="Enter ticker symbol...">
+                            <button class="btn btn-primary" id="getNewsSummary">Get AI Summary</button>
+                        </div>
+                        <div id="newsSummaryContainer"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Latest News</h5>
+                        <button class="btn btn-outline-primary btn-sm" id="toggle-all-news">Expand All</button>
+                    </div>
+                    <div class="card-body">
+                        <div class="input-group mb-3">
+                            <input type="text" id="latestNewsTickerInput" class="form-control" placeholder="Enter ticker symbol...">
+                            <button class="btn btn-primary" id="getLatestNews">Get Latest News</button>
+                        </div>
+                        <div id="latestNewsContainer"></div>
+                        <div id="news-accordion" class="accordion mt-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h4>Portfolio Weight Distribution</h4>
+                        <canvas id="portfolioChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h4>Industry Distribution</h4>
+                        <canvas id="industryChart"></canvas>
+                        <div id="industryLegend" class="mt-3">
+                            <!-- Industry breakdown details will be added here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.10.24/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function formatMoney(number) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD'
+            }).format(number);
+        }
+
+        function formatPercent(number) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'percent',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(number / 100);
+        }
+
+        function getNewsSummary(ticker) {
+            document.getElementById('news-summary').innerHTML = 'Loading news summary...';
+            fetch(`/news-summary/${ticker}`)
+                .then(response => response.json())
+                .then(data => {
+                    const headlines = data.headlines || []; // Add fallback for empty headlines
+                    const summaryHtml = `
+                        <div class="card">
+                            <div class="card-body">
+                                <h4 class="card-title">${ticker} News Summary</h4>
+                                <p class="card-text">${data.summary || 'No summary available'}</p>
+                                ${headlines.length > 0 ? `
+                                    <div class="mt-3">
+                                        <h5>Recent Headlines:</h5>
+                                        <ul class="list-group">
+                                            ${headlines.map(h => 
+                                                `<li class="list-group-item">${h}</li>`
+                                            ).join('')}
+                                        </ul>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                    document.getElementById('news-summary').innerHTML = summaryHtml;
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('news-summary').innerHTML = 
+                        `<div class="alert alert-danger">Error fetching news summary. Please try again later.</div>`;
+                });
+        }
+
+        let portfolioChart = null;
+        let industryChart = null;
+
+        function getRandomColor() {
+            const letters = '0123456789ABCDEF';
+            let color = '#';
+            for (let i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 16)];
+            }
+            return color;
+        }
+
+        function updateCharts(portfolioData) {
+            console.log('Received portfolio data:', portfolioData);
+            
+            // Ensure we have data
+            if (!portfolioData || portfolioData.length === 0) {
+                console.error('No portfolio data available');
+                return;
+            }
+
+            // Get the canvas elements
+            const portfolioCtx = document.getElementById('portfolioChart');
+            const industryCtx = document.getElementById('industryChart');
+
+            // Destroy existing charts if they exist
+            if (portfolioCtx && portfolioCtx.chart) {
+                portfolioCtx.chart.destroy();
+            }
+            if (industryCtx && industryCtx.chart) {
+                industryCtx.chart.destroy();
+            }
+
+            // Portfolio Chart
+            if (portfolioCtx) {
+                const portfolioChartData = {
+                    labels: portfolioData.map(item => item.ticker),
+                    datasets: [{
+                        data: portfolioData.map(item => parseFloat(item.portfolio_weight)),
+                        backgroundColor: portfolioData.map(() => getRandomColor()),
+                    }]
+                };
+
+                portfolioCtx.chart = new Chart(portfolioCtx, {
+                    type: 'pie',
+                    data: portfolioChartData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'right',
+                                labels: {
+                                    font: { size: 11 }
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `${context.label}: ${context.raw.toFixed(2)}%`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Calculate industry data
+            const industryData = {};
+            portfolioData.forEach(item => {
+                const industry = item.industry || 'Other';
+                if (!industryData[industry]) {
+                    industryData[industry] = { weight: 0, tickers: [] };
+                }
+                industryData[industry].weight += parseFloat(item.portfolio_weight);
+                industryData[industry].tickers.push(item.ticker);
+            });
+
+            // Industry Chart
+            if (industryCtx) {
+                const industryChartData = {
+                    labels: Object.keys(industryData),
+                    datasets: [{
+                        data: Object.values(industryData).map(data => data.weight),
+                        backgroundColor: Object.keys(industryData).map(() => getRandomColor()),
+                    }]
+                };
+
+                industryCtx.chart = new Chart(industryCtx, {
+                    type: 'pie',
+                    data: industryChartData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'right',
+                                labels: {
+                                    font: { size: 11 }
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `${context.label}: ${context.raw.toFixed(2)}%`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Update industry breakdown details
+            const industryLegend = document.getElementById('industryLegend');
+            if (industryLegend) {
+                const breakdownHtml = Object.entries(industryData)
+                    .sort((a, b) => b[1].weight - a[1].weight)
+                    .map(([industry, data]) => `
+                        <div class="industry-group mb-3">
+                            <div class="d-flex align-items-center">
+                                <div class="color-box me-2" style="background-color: ${getRandomColor()}"></div>
+                                <strong>${industry}</strong>
+                                <span class="ms-2">(${data.weight.toFixed(2)}%)</span>
+                            </div>
+                            <div class="mt-2">
+                                <small>Tickers: ${data.tickers.join(', ')}</small>
+                            </div>
+                        </div>
+                    `).join('');
+                
+                industryLegend.innerHTML = breakdownHtml;
+            }
+        }
+
+        function updatePortfolio() {
+            fetch('/portfolio')
+                .then(response => response.json())
+                .then(data => {
+                    // Update summary
+                    const summaryHtml = `
+                        <div class="col-md-3">
+                            <h5>Total Investment</h5>
+                            <p class="h4">${formatMoney(data.summary['Total Investment'])}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <h5>Current Value</h5>
+                            <p class="h4">${formatMoney(data.summary['Current Value'])}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <h5>Total Return</h5>
+                            <p class="h4 ${data.summary['Total Return'] >= 0 ? 'positive-return' : 'negative-return'}">
+                                ${formatMoney(data.summary['Total Return'])}
+                            </p>
+                        </div>
+                        <div class="col-md-3">
+                            <h5>Return %</h5>
+                            <p class="h4 ${data.summary['Return Percentage'] >= 0 ? 'positive-return' : 'negative-return'}">
+                                ${formatPercent(data.summary['Return Percentage'])}
+                            </p>
+                        </div>
+                    `;
+                    $('#summary-stats').html(summaryHtml);
+
+                    // Update portfolio table
+                    const table = $('#portfolio-table').DataTable();
+                    table.clear();
+                    data.portfolio.forEach(row => {
+                        table.row.add([
+                            row.position,
+                            row.ticker,
+                            row.type,
+                            row.quantity,
+                            formatMoney(row.avg_cost),
+                            formatMoney(row.current_price),
+                            formatMoney(row.total_cost),
+                            formatMoney(row.total_value),
+                            formatMoney(row.profit_loss),
+                            `<span class="${row.return_percentage >= 0 ? 'positive-return' : 'negative-return'}">${formatPercent(row.return_percentage)}</span>`,
+                            formatPercent(row.portfolio_weight)
+                        ]);
+                    });
+                    table.draw();
+
+                    // Update the charts
+                    updateCharts(data.portfolio);
+                });
+        }
+
+        function updateNews() {
+            fetch('/news')
+                .then(response => response.json())
+                .then(data => {
+                    const newsHtml = Object.entries(data.news).map(([ticker, articles], index) => `
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" 
+                                        data-bs-toggle="collapse" 
+                                        data-bs-target="#news-${ticker.replace('.', '-')}" 
+                                        aria-expanded="false" 
+                                        aria-controls="news-${ticker.replace('.', '-')}">
+                                    <strong>${ticker}</strong>
+                                    <span class="badge ${getBadgeClass(data.cache_status[ticker])} ms-2">
+                                        ${data.cache_status[ticker]}
+                                    </span>
+                                </button>
+                            </h2>
+                            <div id="news-${ticker.replace('.', '-')}" 
+                                 class="accordion-collapse collapse" 
+                                 data-bs-parent="#news-accordion">
+                                <div class="accordion-body">
+                                    ${articles.length > 0 ? articles.map(article => `
+                                        <div class="card mb-3 news-card">
+                                            <div class="card-body">
+                                                <h5 class="card-title">${article.title}</h5>
+                                                <p class="card-text">${article.description || ''}</p>
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <small class="text-muted">
+                                                        ${new Date(article.publishedAt).toLocaleDateString()}
+                                                    </small>
+                                                    <a href="${article.url}" target="_blank" 
+                                                       class="btn btn-outline-primary btn-sm">Read More</a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `).join('') : '<p>No news available</p>'}
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                    
+                    document.getElementById('news-accordion').innerHTML = newsHtml;
+                });
+        }
+
+        function getBadgeClass(status) {
+            switch(status) {
+                case 'cached':
+                    return 'bg-success';
+                case 'fresh':
+                    return 'bg-primary';
+                case 'error':
+                    return 'bg-danger';
+                default:
+                    return 'bg-secondary';
+            }
+        }
+
+        function updateSuggestions() {
+            fetch('/suggestions')
+                .then(response => response.json())
+                .then(data => {
+                    const suggestionsHtml = Object.entries(data.suggestions).map(([ticker, suggestion]) => `
+                        <div class="card mb-2">
+                            <div class="card-body">
+                                <h5 class="card-title">${ticker}</h5>
+                                <p class="card-text">${suggestion}</p>
+                            </div>
+                        </div>
+                    `).join('');
+                    $('#suggestions-container').html(suggestionsHtml);
+                });
+        }
+
+        function setupNewsToggle() {
+            const toggleButton = document.getElementById('toggle-all-news');
+            let isExpanded = false;
+
+            toggleButton.addEventListener('click', () => {
+                isExpanded = !isExpanded;
+                const accordionButtons = document.querySelectorAll('.accordion-button');
+                const accordionCollapse = document.querySelectorAll('.accordion-collapse');
+                
+                accordionButtons.forEach(button => {
+                    if (isExpanded) {
+                        button.classList.remove('collapsed');
+                        button.setAttribute('aria-expanded', 'true');
+                    } else {
+                        button.classList.add('collapsed');
+                        button.setAttribute('aria-expanded', 'false');
+                    }
+                });
+
+                accordionCollapse.forEach(collapse => {
+                    if (isExpanded) {
+                        collapse.classList.add('show');
+                    } else {
+                        collapse.classList.remove('show');
+                    }
+                });
+
+                toggleButton.textContent = isExpanded ? 'Collapse All' : 'Expand All';
+                toggleButton.classList.toggle('btn-outline-primary');
+                toggleButton.classList.toggle('btn-primary');
+            });
+        }
+
+        $(document).ready(function() {
+            $('#portfolio-table').DataTable({
+                order: [[8, 'desc']],
+                pageLength: 25
+            });
+            updatePortfolio();
+            updateNews();
+            updateSuggestions();
+            
+            // Only call setupNewsToggle if the toggle button exists
+            const toggleButton = document.getElementById('toggle-all-news');
+            if (toggleButton) {
+                setupNewsToggle();
+            }
+        });
+
+        // Ticker validation function
+        async function validateTicker(ticker) {
+            try {
+                const response = await fetch(`/validate-ticker/${ticker}`);
+                const data = await response.json();
+                return data.valid;
+            } catch (error) {
+                console.error('Error validating ticker:', error);
+                return false;
+            }
+        }
+
+        // News Summary Section
+        document.getElementById('getNewsSummary').addEventListener('click', async function() {
+            const ticker = document.getElementById('summaryTickerInput').value.trim().toUpperCase();
+            const summaryContainer = document.getElementById('newsSummaryContainer');
+            
+            if (!ticker) {
+                alert('Please enter a ticker symbol');
+                return;
+            }
+
+            // Validate ticker first
+            const isValid = await validateTicker(ticker);
+            if (!isValid) {
+                summaryContainer.innerHTML = `
+                    <div class="alert alert-danger">
+                        Invalid ticker symbol: ${ticker}
+                    </div>`;
+                return;
+            }
+
+            // Show loading state
+            summaryContainer.innerHTML = `
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <div class="mt-2">Generating AI analysis...</div>
+                </div>`;
+
+            // Fetch AI summary
+            fetch(`/news-summary/${ticker}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        summaryContainer.innerHTML = `
+                            <div class="analysis-container">
+                                <div class="analysis-content">
+                                    ${marked.parse(data.summary)}
+                                </div>
+                                <div class="headlines-container mt-4">
+                                    <h6>Recent Headlines:</h6>
+                                    <ul class="list-unstyled">
+                                        ${data.headlines.map(headline => `
+                                            <li class="mb-2">• ${headline}</li>
+                                        `).join('')}
+                                    </ul>
+                                </div>
+                            </div>`;
+                    } else {
+                        summaryContainer.innerHTML = `
+                            <div class="alert alert-warning">
+                                ${data.summary}
+                            </div>`;
+                    }
+                })
+                .catch(error => {
+                    summaryContainer.innerHTML = `
+                        <div class="alert alert-danger">
+                            Error generating analysis. Please try again.
+                        </div>`;
+                });
+        });
+
+        // Latest News Section
+        document.getElementById('getLatestNews').addEventListener('click', async function() {
+            const ticker = document.getElementById('latestNewsTickerInput').value.trim().toUpperCase();
+            const newsContainer = document.getElementById('latestNewsContainer');
+            
+            if (!ticker) {
+                alert('Please enter a ticker symbol');
+                return;
+            }
+
+            // Validate ticker first
+            const isValid = await validateTicker(ticker);
+            if (!isValid) {
+                newsContainer.innerHTML = `
+                    <div class="alert alert-danger">
+                        Invalid ticker symbol: ${ticker}
+                    </div>`;
+                return;
+            }
+
+            // Show loading state
+            newsContainer.innerHTML = `
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <div class="mt-2">Loading latest news...</div>
+                </div>`;
+
+            // Fetch latest news
+            fetch(`/latest-news/${ticker}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        newsContainer.innerHTML = `
+                            <div class="list-group">
+                                ${data.articles.map(article => `
+                                    <a href="${article.url}" 
+                                       target="_blank" 
+                                       class="list-group-item list-group-item-action">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div class="ms-2 me-auto">
+                                                <div class="fw-bold">${article.title}</div>
+                                                <small class="text-muted">
+                                                    ${new Date(article.publishedAt).toLocaleDateString()} - 
+                                                    ${article.source.name}
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </a>
+                                `).join('')}
+                            </div>`;
+                    } else {
+                        newsContainer.innerHTML = `
+                            <div class="alert alert-warning">
+                                ${data.summary}
+                            </div>`;
+                    }
+                })
+                .catch(error => {
+                    newsContainer.innerHTML = `
+                        <div class="alert alert-danger">
+                            Error loading news. Please try again.
+                        </div>`;
+                });
+        });
+    </script>
+</body>
+</html> 
