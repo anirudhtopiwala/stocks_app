@@ -1,15 +1,12 @@
-import requests
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
-import time
 from typing import Dict, List, Optional
 
-import yfinance as yf
-from concurrent.futures import ThreadPoolExecutor
-
 import pandas as pd
-import numpy as np
+import requests
+import yfinance as yf
 from dotenv import load_dotenv
 
 # Load environment variables from .env file

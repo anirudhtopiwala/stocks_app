@@ -1,26 +1,17 @@
-from fastapi import FastAPI, Request, HTTPException
+import asyncio
+import json
+import os
+from datetime import datetime, timedelta
+
+import numpy as np
+import yfinance as yf
+from fastapi import FastAPI, Request
 from fastapi.templating import Jinja2Templates
-from fastapi.staticfiles import StaticFiles
-from portfolio import (
-    load_portfolio,
-    compile_news_briefing,
-    generate_portfolio_suggestions,
-    FILE_PATH,
-    NEWS_API_KEY,
-    OPENAI_API_KEY,
-    get_news_for_ticker,
-    get_cached_news,
-    save_to_cache,
-)
 from openai import OpenAI
 
-import os
-import json
-from datetime import datetime, timedelta
-from fastapi.responses import StreamingResponse
-import asyncio
-import yfinance as yf
-import numpy as np
+from portfolio import (FILE_PATH, NEWS_API_KEY, OPENAI_API_KEY,
+                       compile_news_briefing, generate_portfolio_suggestions,
+                       get_news_for_ticker, load_portfolio)
 
 # Add your OpenAI API key
 client = OpenAI(api_key=OPENAI_API_KEY)
