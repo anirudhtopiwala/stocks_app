@@ -3,3 +3,4 @@ __pycache__
 news_cache.json
 .env
 uploads/user_portfolio.csv
+venv
