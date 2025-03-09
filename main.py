@@ -11,10 +11,16 @@ from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.templating import Jinja2Templates
 from openai import OpenAI
 
-from portfolio import (NEWS_API_KEY, OPENAI_API_KEY, PORTFOLIO_FILE_PATH,
-                       compile_news_briefing, generate_portfolio_suggestions,
-                       get_news_for_ticker, load_portfolio,
-                       validate_portfolio_file)
+from portfolio import (
+    NEWS_API_KEY,
+    OPENAI_API_KEY,
+    PORTFOLIO_FILE_PATH,
+    compile_news_briefing,
+    generate_portfolio_suggestions,
+    get_news_for_ticker,
+    load_portfolio,
+    validate_portfolio_file,
+)
 
 # Add your OpenAI API key
 client = OpenAI(api_key=OPENAI_API_KEY)
@@ -33,19 +39,12 @@ AI_CACHE_EXPIRY_HOURS = 24  # AI summaries valid for 24 hours
 def initialize_portfolio():
     global PORTFOLIO_FILE_PATH
     user_portfolio = UPLOADS_DIR / "user_portfolio.csv"
-    dummy_portfolio = Path("dummy_portfolio.csv")
+    dummy_portfolio = UPLOADS_DIR / "dummy_portfolio.csv"
 
-    if not user_portfolio.exists():
-        try:
-            # Create uploads directory if it doesn't exist
-            UPLOADS_DIR.mkdir(exist_ok=True)
-            # Copy dummy portfolio to uploads directory
-            shutil.copy(dummy_portfolio, user_portfolio)
-        except Exception as e:
-            raise RuntimeError(f"Failed to initialize portfolio: {str(e)}")
-
-    PORTFOLIO_FILE_PATH = user_portfolio
-    return PORTFOLIO_FILE_PATH
+    if user_portfolio.exists():
+        return user_portfolio
+    elif dummy_portfolio.exists():
+        return dummy_portfolio
 
 
 # Initialize portfolio at startup
