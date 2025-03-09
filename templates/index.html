@@ -127,6 +127,13 @@
             padding: 15px;
             border-radius: 8px;
         }
+
+        #upload-form {
+            margin-bottom: 1rem;
+        }
+        #upload-status {
+            margin-top: 0.5rem;
+        }
     </style>
 </head>
 <body>
@@ -137,6 +144,25 @@
     </nav>
 
     <div class="container mt-4">
+        <!-- Add upload form at the top -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Upload Portfolio</h5>
+                        <form id="upload-form" class="mb-3">
+                            <div class="input-group">
+                                <input type="file" class="form-control" id="portfolio-file" accept=".csv">
+                                <button class="btn btn-primary" type="submit">Upload</button>
+                            </div>
+                            <small class="text-muted">CSV must have columns: TICKER,QUANTITY,COST/SHARE. Default: dummy_portfolio.csv</small>
+                        </form>
+                        <div id="upload-status"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="row">
             <div class="col-md-12">
                 <div class="summary-card">
@@ -602,6 +628,55 @@
             if (toggleButton) {
                 setupNewsToggle();
             }
+            $('#upload-form').on('submit', function(e) {
+                e.preventDefault();
+                const fileInput = document.getElementById('portfolio-file');
+                const file = fileInput.files[0];
+                
+                if (!file) {
+                    alert('Please select a file');
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                $('#upload-status').html(`
+                    <div class="alert alert-info">
+                        Uploading file...
+                    </div>
+                `);
+
+                fetch('/upload-portfolio', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        $('#upload-status').html(`
+                            <div class="alert alert-danger">
+                                <strong>Error:</strong> ${data.error}
+                            </div>
+                        `);
+                    } else {
+                        $('#upload-status').html(`
+                            <div class="alert alert-success">
+                                Portfolio uploaded successfully!
+                            </div>
+                        `);
+                        updatePortfolio();
+                        updateNews(); 
+                    }
+                })
+                .catch(error => {
+                    $('#upload-status').html(`
+                        <div class="alert alert-danger">
+                            Upload failed: ${error}
+                        </div>
+                    `);
+                });
+            });
         });
 
         // Ticker validation function
@@ -743,4 +818,4 @@
         });
     </script>
 </body>
-</html> 
+</html>

@@ -1,20 +1,26 @@
 import asyncio
 import json
 import os
+import shutil
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import numpy as np
 import yfinance as yf
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.templating import Jinja2Templates
 from openai import OpenAI
 
-from portfolio import (FILE_PATH, NEWS_API_KEY, OPENAI_API_KEY,
+from portfolio import (NEWS_API_KEY, OPENAI_API_KEY, PORTFOLIO_FILE_PATH,
                        compile_news_briefing, generate_portfolio_suggestions,
-                       get_news_for_ticker, load_portfolio)
+                       get_news_for_ticker, load_portfolio,
+                       validate_portfolio_file)
 
 # Add your OpenAI API key
 client = OpenAI(api_key=OPENAI_API_KEY)
+
+# Create uploads directory constant
+UPLOADS_DIR = Path("uploads")
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -22,6 +28,28 @@ templates = Jinja2Templates(directory="templates")
 CACHE_DIR = "cache"
 AI_SUMMARY_CACHE_FILE = os.path.join(CACHE_DIR, "ai_summaries.json")
 AI_CACHE_EXPIRY_HOURS = 24  # AI summaries valid for 24 hours
+
+
+def initialize_portfolio():
+    global PORTFOLIO_FILE_PATH
+    user_portfolio = UPLOADS_DIR / "user_portfolio.csv"
+    dummy_portfolio = Path("dummy_portfolio.csv")
+
+    if not user_portfolio.exists():
+        try:
+            # Create uploads directory if it doesn't exist
+            UPLOADS_DIR.mkdir(exist_ok=True)
+            # Copy dummy portfolio to uploads directory
+            shutil.copy(dummy_portfolio, user_portfolio)
+        except Exception as e:
+            raise RuntimeError(f"Failed to initialize portfolio: {str(e)}")
+
+    PORTFOLIO_FILE_PATH = user_portfolio
+    return PORTFOLIO_FILE_PATH
+
+
+# Initialize portfolio at startup
+PORTFOLIO_FILE_PATH = initialize_portfolio()
 
 
 def get_cached_ai_summary(ticker: str) -> dict:
@@ -72,7 +100,7 @@ async def root(request: Request):
 @app.get("/portfolio")
 async def get_portfolio():
     try:
-        portfolio_df, portfolio_summary = load_portfolio(FILE_PATH)
+        portfolio_df, portfolio_summary = load_portfolio(PORTFOLIO_FILE_PATH)
         portfolio_data = portfolio_df.to_dict(orient="records")
 
         # Ensure numerical values are properly formatted
@@ -93,14 +121,14 @@ async def get_portfolio():
 
 @app.get("/news")
 async def get_news():
-    portfolio_df, _ = load_portfolio(FILE_PATH)
+    portfolio_df, _ = load_portfolio(PORTFOLIO_FILE_PATH)
     news_data, cache_status = compile_news_briefing(portfolio_df, NEWS_API_KEY)
     return {"news": news_data, "cache_status": cache_status}
 
 
 @app.get("/suggestions")
 async def get_suggestions():
-    portfolio_df, _ = load_portfolio(FILE_PATH)
+    portfolio_df, _ = load_portfolio(PORTFOLIO_FILE_PATH)
     suggestions = generate_portfolio_suggestions(portfolio_df, None)
     return {"suggestions": suggestions}
 
@@ -309,3 +337,32 @@ async def generate_streaming_response(prompt: str):
 
     except Exception as e:
         yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+
+@app.post("/upload-portfolio")
+async def upload_portfolio(file: UploadFile = File(...)):
+    try:
+        # Save uploaded file
+        global PORTFOLIO_FILE_PATH
+        file_path = UPLOADS_DIR / "user_portfolio.csv"
+
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        # Validate the portfolio
+        try:
+            validate_portfolio_file(file_path)
+        except ValueError as e:
+            # Remove invalid file
+            os.remove(file_path)
+            return {"error": str(e)}
+
+        # Update the portfolio path
+        PORTFOLIO_FILE_PATH = file_path
+
+        return {
+            "message": "File uploaded successfully",
+            "file_path": str(PORTFOLIO_FILE_PATH),
+        }
+    except Exception as e:
+        return {"error": str(e)}

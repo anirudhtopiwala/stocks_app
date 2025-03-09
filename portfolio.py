@@ -15,7 +15,7 @@ ALPHA_VANTAGE_API_KEY = os.getenv("ALPHA_VANTAGE_API_KEY")
 NEWS_API_KEY = os.getenv("NEWS_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-FILE_PATH = "portfolio.csv"
+PORTFOLIO_FILE_PATH = "dummy_portfolio.csv"
 
 # Add these constants at the top of the file
 CACHE_DIR = "cache"
@@ -211,13 +211,44 @@ def derive_ticker_type(ticker: str) -> str:
         return "STOCK"  # Default to STOCK for all other tickers
 
 
+def validate_portfolio_file(file_path: str) -> bool:
+    try:
+        # Check if file exists
+        if not os.path.exists(file_path):
+            raise ValueError("Portfolio file not found")
+
+        # Read CSV and validate structure
+        df = pd.read_csv(file_path)
+
+        # Check required columns
+        required_columns = ["TICKER", "QUANTITY", "COST/SHARE"]
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            raise ValueError(f"Missing required columns: {', '.join(missing_columns)}")
+
+        # Check data types
+        if not df["TICKER"].dtype == "object":
+            raise ValueError("TICKER column must contain text values")
+        if not pd.to_numeric(df["QUANTITY"], errors="coerce").notnull().all():
+            raise ValueError("QUANTITY column must contain valid numbers")
+        if not pd.to_numeric(df["COST/SHARE"], errors="coerce").notnull().all():
+            raise ValueError("COST/SHARE column must contain valid numbers")
+
+        # Check for missing values
+        if df.isnull().any().any():
+            raise ValueError("Portfolio contains missing values")
+
+        return True
+
+    except Exception as e:
+        raise ValueError(f"Invalid portfolio file: {str(e)}")
+
+
 # Example usage in load_portfolio function
-def load_portfolio(file_path: str) -> pd.DataFrame:
+def load_portfolio(PORTFOLIO_FILE_PATH: str) -> pd.DataFrame:
     try:
         # Read the simplified CSV
-        df = pd.read_csv(file_path)
-        print(f"Successfully read CSV. Shape: {df.shape}")
-        print(f"Columns found: {df.columns.tolist()}")
+        df = pd.read_csv(PORTFOLIO_FILE_PATH)
 
         # Rename columns to internal names for consistency
         df = df.rename(
@@ -227,7 +258,6 @@ def load_portfolio(file_path: str) -> pd.DataFrame:
                 "COST/SHARE": "avg_cost",
             }
         )
-        print(f"Columns after renaming: {df.columns.tolist()}")
         # Assign position based on row index (1-based)
         df["position"] = df.index + 1
 
